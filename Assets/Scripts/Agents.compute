@@ -1,0 +1,160 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Ouput texture
+RWTexture2D<float4> output;
+uint width;
+uint height;
+
+// Agents
+struct Agent{
+    float2 position;
+    float angle;
+};
+RWStructuredBuffer<Agent> agents;
+uint numAgents;
+float moveSpeed;
+float turnSpeed;
+float sensorWidth;
+float sensorDist;
+float trailWeight;
+int sensorSize;
+
+// Time 
+float time;
+float deltaTime;
+
+// Hash function from H. Schechter & R. Bridson, goo.gl/RXiKaH
+uint Hash(uint s)
+{
+    s ^= 2747636419u;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    return s;
+};
+
+float ScaleHash(uint hash)
+{
+    return hash / 4294967295.0; // 2^32-1
+};
+
+
+float sense(Agent agent, float sensorAngleOffset){
+    float sensorAngle = agent.angle + sensorAngleOffset;
+    float2 sensorDir = float2(cos(sensorAngle), sin(sensorAngle));
+    int2 sensorCentre = agent.position + sensorDir * sensorDist;
+    float sum = 0;
+
+    for (int x = -sensorSize; x <= sensorSize; x++){
+        for (int y = -sensorSize; y <= sensorSize; y++){
+            int2 pos = sensorCentre + int2(x,y);
+            if (pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < height){
+                sum += output[pos].x;
+            }
+        }
+    }
+    return sum;
+}
+
+
+// Main loop
+[numthreads(16,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // Exit if thread is outside tecture bounds 
+    if(id.x >= numAgents) { return; }
+
+    // Gran the current agent, and create a random number 
+    Agent agent = agents[id.x];
+    float random = Hash(agent.position.y * width + agent.position.x + Hash(id.x * time));
+
+    // Sense concentrations around agent
+    float randomSteer = ScaleHash(random);
+    
+    float forward = sense(agent, 0);
+    float left = sense(agent, sensorWidth);
+    float right = sense(agent, -sensorWidth);
+
+    // Turning logic  
+    if (forward > left && forward > right) {
+        // maintain course
+        agents[id.x].angle += 0;
+    }
+    else if (forward < left && forward < right){
+        // turn randomly
+        agents[id.x].angle += (randomSteer - 0.5) * 2 * turnSpeed * deltaTime;
+    }
+    else if (right > left) {
+        // turn right
+        agents[id.x].angle -= randomSteer * turnSpeed * deltaTime;
+    }
+    else if (left > right) {
+        // turn left 
+        agents[id.x].angle += randomSteer * turnSpeed * deltaTime;
+    }
+
+    // Move thing based on current direction & speed
+    float2 direction = float2(cos(agent.angle), sin(agent.angle));
+    float2 newPos = agent.position + direction * moveSpeed * deltaTime;;
+
+    // Stop thing exiting texture boundaries 
+    if (newPos.x < 0 || newPos.x >= width || newPos.y < 0 || newPos.y >= height) {
+        // Find a pos thats within the boundary 
+        newPos.x = min(width - 1, max(0, newPos.x));
+        newPos.y = min(height - 1, max(0, newPos.y));
+        agents[id.x].angle = ScaleHash(Hash(random)) * 2.0 * 3.1415;
+    }
+
+
+    float4 trail = output[int2(newPos)];
+    output[int2(newPos.x, newPos.y)] = min(1, trail + trailWeight * deltaTime);
+
+    agents[id.x].position = newPos;
+}
+
+// Trail reduction
+#pragma kernel Dissolve
+
+float decay;
+float diffuse;
+
+RWTexture2D<float> dissolve;
+
+[numthreads(8,8,1)]
+void Dissolve (uint3 id: SV_DispatchThreadID)
+{
+    // If thread is outside pixel range, return
+    if (id.x < 0 || id.x > (uint)width || id.y < 0 || id.y > (uint)height) {
+		return;
+	}
+
+    // Get colour from trailmap 
+    float4 originalValue = output[id.xy];
+
+    // Simulate diffusion using a 3x3 block around each pixel
+    float4 sum = 0;
+    for (int x = -1; x <= 1; x++){
+        for (int y = -1; y <= 1; y++){
+            int sampX = id.x + x;
+            int sampY = id.y + y;
+
+            // Constrain within texture boundaries 
+            if (sampX >= 0 && sampX < width && sampY >=0 && sampY < height){
+                sum += output[int2(sampX, sampY)];
+            }
+        }
+    }
+
+    float4 blur = sum / 9;
+
+    // Blend between original and new values, based on diffusion speed 
+    float4 diffuseValue = lerp(originalValue, blur, diffuse * deltaTime);
+
+    float4 finalValue = max(0, diffuseValue - decay * deltaTime);
+
+    // Write to new texture that we must Blit with the trail map
+    dissolve[id.xy] = finalValue;
+}
