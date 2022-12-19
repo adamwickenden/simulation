@@ -3,8 +3,8 @@
 
 // Ouput texture
 RWTexture2D<float4> output;
-uint width;
-uint height;
+int width;
+int height;
 
 // Agents
 struct Agent{
@@ -67,13 +67,12 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     // Exit if thread is outside tecture bounds 
     if(id.x >= numAgents) { return; }
 
-    // Gran the current agent, and create a random number 
+    // Grab the current agent, and create a random number 
     Agent agent = agents[id.x];
     float random = Hash(agent.position.y * width + agent.position.x + Hash(id.x * time));
+    float randomSteer = ScaleHash(random);
 
     // Sense concentrations around agent
-    float randomSteer = ScaleHash(random);
-    
     float forward = sense(agent, 0);
     float left = sense(agent, sensorWidth);
     float right = sense(agent, -sensorWidth);
@@ -121,7 +120,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 float decay;
 float diffuse;
 
-RWTexture2D<float> dissolve;
+RWTexture2D<float4> dissolve;
 
 [numthreads(8,8,1)]
 void Dissolve (uint3 id: SV_DispatchThreadID)
