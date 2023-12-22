@@ -1,8 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.UIElements;
 
 public class ConwayManager : MonoBehaviour
 {
@@ -36,19 +38,19 @@ public class ConwayManager : MonoBehaviour
 
         int[,] brushArray = new int[,] {
             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 1, 0, 0, 0, 0, 0, 0, 1, 1},
+            {1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
+            {1, 0, 0, 1, 0, 0, 1, 0, 0, 1},
+            {1, 0, 0, 0, 1, 1, 0, 0, 0, 1},
+            {1, 0, 0, 0, 1, 1, 0, 0, 0, 1},
+            {1, 0, 0, 1, 0, 0, 1, 0, 0, 1},
+            {1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
+            {1, 1, 0, 0, 0, 0, 0, 0, 1, 1},
             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
         };
-        int[] brushShape = brushArray.Cast<int>().ToArray();
+        int[] brushShape = PadIntArray(brushArray.Cast<int>().ToArray());
 
-        string output = "";
+        string output = "";       
         foreach (var x in brushShape)
         {
             output += x.ToString(); 
@@ -120,22 +122,19 @@ public class ConwayManager : MonoBehaviour
         return texture;
     }
 
-    public static Texture2D WriteArrayToTexture(float[,] arr)
-    {
-        Texture2D tex = new Texture2D(arr.GetLength(0), arr.GetLength(1));
-        for (int i = 0; i < arr.GetLength(0); i++)
-        {
-            for (int j = 0; j < arr.GetLength(1); j++)
-            {
-                tex.SetPixel(i, j, new Color(arr[i, j], 0f, 0f));
-
-
+    public int[] PadIntArray(int[] inputArray) {
+        int paddedShape = inputArray.Length * 4;
+        int[] paddedArray = new int[paddedShape];
+        
+        for (int i = 0; i < paddedArray.Length; i++) {
+            if (i % 4 == 0){
+                paddedArray[i] = inputArray[i/4];
             }
         }
-        tex.Apply();
-        return tex;
+
+        return paddedArray;
     }
 
     public void Draw() { draw = true; }
     public void Play() { draw = false;  }
-}
+} 

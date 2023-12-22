@@ -81,15 +81,16 @@ void Random (uint3 id : SV_DispatchThreadID)
 void Update(uint3 id : SV_DispatchThreadID) 
 {
     if (draw && mouseDown) {
-        float2 pixelPos = id.xy;
         float2 mousePos = mousePosition.xy;
         
-        if (length(pixelPos - mousePos) < 1) {
-            for (int i = 0; i < brushMax; i++) {
-                int2 brushXY = IndexTransform(i, brushArrSize);
-                int2 drawPos = pixelPos + brushXY;
-                //float d = float(brushShape[i]);
-                Conway[int2((id.x + i), id.y)] = float4(1, 1, 1, 1);
+        if (length(id.xy - mousePos) < 1) {
+            for (int i = 0; i < 10; i++) {
+                for (int j = 0; j < 10; j++){
+                    int idx = i + (j*10);
+                    if (brushShape[idx] == 1){
+                        Conway[int2(id.x + i, id.y + j)] = float4(1,1,1,1);
+                    }
+                }
             }
         }
     }
