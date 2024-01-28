@@ -5,6 +5,7 @@ using System.Runtime.ExceptionServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.UIElements;
+using UnityEngine.EventSystems;
 
 public class ConwayManager : MonoBehaviour
 {
@@ -81,11 +82,14 @@ public class ConwayManager : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
+        bool pointerOverUI = EventSystem.current.IsPointerOverGameObject();
+
         int updateKernel = ConwayShader.FindKernel("Update");
         ConwayShader.SetTexture(updateKernel, "Conway", renderTexture);
         ConwayShader.SetFloat("time", Time.unscaledTime);
+        
         // If mouse down and draw true
-        if (Input.GetMouseButton(0) && draw)
+        if (!pointerOverUI && Input.GetMouseButton(0) && draw)
         {
             // Send mouse co-ords and set to true
             ConwayShader.SetVector("mousePosition", Input.mousePosition);
