@@ -1,10 +1,6 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.ExceptionServices;
+
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using UnityEngine.UIElements;
 using UnityEngine.EventSystems;
 
 public class ConwayManager : MonoBehaviour
@@ -12,15 +8,20 @@ public class ConwayManager : MonoBehaviour
     [SerializeField] private ComputeShader ConwayShader;
     private RenderTexture renderTexture;
 
-    // Modifyables
-    [SerializeField] private bool draw = true;
-    [SerializeField] private float brushSize = 1f;
+    [SerializeField] private GameObject drawArray;
+    private DrawArrayManager drawArrayManager;
 
-    [Range(0.1f, 5f)]
-    [SerializeField] private float timeScale = 1f;
+    // Modifiables
+    private bool draw = true;
+
+    private float timeScale {get; set;}
 
     private bool _drawCache;
     private float _fixedDeltaTime;
+
+    private int[] brushShape;
+
+    private RenderTexture InputTexture;
 
     // Constants and extras
     private const FilterMode defaultFilterMode = FilterMode.Point;
@@ -29,39 +30,22 @@ public class ConwayManager : MonoBehaviour
     public void Awake()
     {
         _fixedDeltaTime = Time.fixedDeltaTime;
+        SetTimeScale(1f);
     }
 
     // Start is called before the first frame update
     public void Start()
     {
-
+        drawArrayManager = drawArray.GetComponent<DrawArrayManager>();
         renderTexture = CreateRenderTexture(Screen.width, Screen.height);
+        InputTexture = CreateRenderTexture(Screen.width, Screen.height);
 
-        int[,] brushArray = new int[,] {
-            {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 1, 0, 0, 0, 0, 0, 0, 1, 1},
-            {1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
-            {1, 0, 0, 1, 0, 0, 1, 0, 0, 1},
-            {1, 0, 0, 0, 1, 1, 0, 0, 0, 1},
-            {1, 0, 0, 0, 1, 1, 0, 0, 0, 1},
-            {1, 0, 0, 1, 0, 0, 1, 0, 0, 1},
-            {1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
-            {1, 1, 0, 0, 0, 0, 0, 0, 1, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        };
-        int[] brushShape = PadIntArray(brushArray.Cast<int>().ToArray());
-
-        string output = "";       
-        foreach (var x in brushShape)
-        {
-            output += x.ToString(); 
-        }
-        Debug.Log(output);
+        brushShape = drawArrayManager.GetDefaultBrush();
 
         int initKernel = ConwayShader.FindKernel("Init");
         ConwayShader.SetTexture(initKernel, "Conway", renderTexture);
+        ConwayShader.SetInt("brushArrSize", 10);
         ConwayShader.SetInts("brushShape", brushShape);
-        ConwayShader.SetInt("brushArrSize", 10) ;
         ConwayShader.SetInt("brushMax", brushShape.Length);
         ConwayShader.SetFloat("width", Screen.width);
         ConwayShader.SetFloat("height", Screen.height);
@@ -69,14 +53,6 @@ public class ConwayManager : MonoBehaviour
         ConwayShader.SetBool("draw", draw);
         _drawCache = draw;
         ConwayShader.Dispatch(initKernel, renderTexture.width / 8, renderTexture.height / 8, 1);
-    }
-
-    // Create a Random Background textureunit
-    public void Random()
-    {
-        int randKernel = ConwayShader.FindKernel("Random");
-        ConwayShader.SetTexture(randKernel, "Conway", renderTexture);
-        ConwayShader.Dispatch(randKernel, renderTexture.width / 8, renderTexture.height / 8, 1);
     }
 
     // Update is called once per frame
@@ -87,6 +63,7 @@ public class ConwayManager : MonoBehaviour
         int updateKernel = ConwayShader.FindKernel("Update");
         ConwayShader.SetTexture(updateKernel, "Conway", renderTexture);
         ConwayShader.SetFloat("time", Time.unscaledTime);
+        ConwayShader.SetInts("brushShape", brushShape);
         
         // If mouse down and draw true
         if (!pointerOverUI && Input.GetMouseButton(0) && draw)
@@ -126,19 +103,21 @@ public class ConwayManager : MonoBehaviour
         return texture;
     }
 
-    public int[] PadIntArray(int[] inputArray) {
-        int paddedShape = inputArray.Length * 4;
-        int[] paddedArray = new int[paddedShape];
-        
-        for (int i = 0; i < paddedArray.Length; i++) {
-            if (i % 4 == 0){
-                paddedArray[i] = inputArray[i/4];
-            }
-        }
-
-        return paddedArray;
+    // Create a Random Background texture
+    public void Random()
+    {
+        int randKernel = ConwayShader.FindKernel("Random");
+        ConwayShader.SetTexture(randKernel, "Conway", renderTexture);
+        ConwayShader.Dispatch(randKernel, renderTexture.width / 8, renderTexture.height / 8, 1);
     }
 
     public void Draw() { draw = true; }
     public void Play() { draw = false;  }
+    public void SetTimeScale(float sliderValue) { 
+        timeScale = sliderValue; 
+    }
+
+    public void SetBrush(int[] brush) {
+        brushShape = brush;
+    } 
 } 

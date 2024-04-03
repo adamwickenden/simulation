@@ -5,7 +5,8 @@
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-RWTexture2D<float4> Conway;
+sampler2D Input;
+RWTexture2D<float4> OutputConway;
 int width;
 int height;
 

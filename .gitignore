@@ -10,6 +10,9 @@
 /[Ll]ogs/
 /[Mm]emoryCaptures/
 
+# Ignore TMP
+/[Aa]ssets/[Tt]extMesh Pro/ 
+
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 !/[Aa]ssets/**/*.meta
 
@@ -60,3 +63,4 @@ crashlytics-build.properties
 
 # Mac Specific
 .DS_Store
+Assets/TextMesh Pro.meta
